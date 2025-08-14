@@ -1,10 +1,80 @@
-<video id="video" autoplay playsinline muted style="width:100%;height:auto;"></video>
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="UTF-8">
+<title>笑うとコスモおじさん</title>
+<style>
+  body {
+    text-align: center;
+    background: #000;
+    color: white;
+  }
+  video, canvas {
+    position: absolute;
+    left: 50%;
+    transform: translateX(-50%);
+  }
+  #video {
+    top: 0;
+  }
+  #overlay {
+    top: 0;
+  }
+</style>
+</head>
+<body>
+<h1>笑うとコスモおじさん</h1>
+<video id="video" width="640" height="480" autoplay muted></video>
+<canvas id="overlay" width="640" height="480"></canvas>
+
+<script src="https://unpkg.com/face-api.js"></script>
 <script>
-navigator.mediaDevices.getUserMedia({ video: true })
-  .then(stream => {
-    document.getElementById('video').srcObject = stream;
-  })
-  .catch(err => {
-    console.error("カメラ取得失敗:", err);
+(async function() {
+  const video = document.getElementById('video');
+  const canvas = document.getElementById('overlay');
+  const ctx = canvas.getContext('2d');
+
+  // 1. カメラ起動
+  try {
+    const stream = await navigator.mediaDevices.getUserMedia({ video: true });
+    video.srcObject = stream;
+    console.log("✅ カメラ起動成功");
+  } catch (err) {
+    console.error("❌ カメラ起動失敗:", err);
+    alert("カメラが使えません");
+    return;
+  }
+
+  // モデル読み込み
+  await faceapi.nets.tinyFaceDetector.loadFromUri('https://unpkg.com/face-api.js/models');
+  await faceapi.nets.faceExpressionNet.loadFromUri('https://unpkg.com/face-api.js/models');
+  console.log("✅ モデル読み込み完了");
+
+  // コスモおじさん画像
+  const ojisanImg = new Image();
+  ojisanImg.src = 'ojisan.png'; // 同じディレクトリに置く
+
+  video.addEventListener('play', () => {
+    console.log("▶ 顔検出開始");
+    const detectLoop = async () => {
+      ctx.clearRect(0, 0, canvas.width, canvas.height);
+      const detection = await faceapi.detectSingleFace(video, new faceapi.TinyFaceDetectorOptions()).withFaceExpressions();
+
+      if (detection) {
+        const box = detection.detection.box;
+        const expressions = detection.expressions;
+        const smileScore = expressions.happy || 0;
+        console.log("😊 笑顔スコア:", smileScore.toFixed(2));
+
+        if (smileScore > 0.6) {
+          ctx.drawImage(ojisanImg, box.x - 50, box.y - 50, box.width + 100, box.height + 100);
+        }
+      }
+      requestAnimationFrame(detectLoop);
+    };
+    detectLoop();
   });
+})();
 </script>
+</body>
+</html>
