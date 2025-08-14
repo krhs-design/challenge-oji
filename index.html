@@ -1,83 +1,10 @@
-<!DOCTYPE html>
-<html lang="ja">
-<head>
-  <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>笑うとコスモおじさん</title>
-  <style>
-    body { margin:0; background:#000; display:flex; justify-content:center; align-items:center; height:100vh; }
-    canvas, video { position:absolute; top:0; left:0; }
-  </style>
-</head>
-<body>
-  <video id="video" autoplay playsinline muted></video>
-  <canvas id="output"></canvas>
-  <script type="module">
-    import {FaceLandmarker, FilesetResolver} from "https://cdn.jsdelivr.net/npm/@mediapipe/tasks-vision@0.10.0";
-
-    const video = document.getElementById("video");
-    const canvas = document.getElementById("output");
-    const ctx = canvas.getContext("2d");
-
-    const mask = new Image();
-    mask.src = "cosmo.png";
-
-    async function init() {
-      const vision = await FilesetResolver.forVisionTasks(
-        "https://cdn.jsdelivr.net/npm/@mediapipe/tasks-vision@0.10.0/wasm"
-      );
-      const faceLandmarker = await FaceLandmarker.createFromOptions(vision, {
-        baseOptions: {
-          modelAssetPath:
-            "https://storage.googleapis.com/mediapipe-models/face_landmarker/face_landmarker/float16/1/face_landmarker.task",
-        },
-        runningMode: "VIDEO",
-        numFaces: 1,
-        outputFaceBlendshapes: true
-      });
-
-      const stream = await navigator.mediaDevices.getUserMedia({video: true});
-      video.srcObject = stream;
-
-      video.addEventListener("loadeddata", () => {
-        canvas.width = video.videoWidth;
-        canvas.height = video.videoHeight;
-        requestAnimationFrame(drawFrame);
-      });
-
-      function drawFrame() {
-        ctx.drawImage(video, 0, 0, canvas.width, canvas.height);
-
-        const now = Date.now();
-        const result = faceLandmarker.detectForVideo(video, now);
-
-        if (result.faceBlendshapes?.length) {
-          const bs = result.faceBlendshapes[0].categories;
-          const smileL = bs.find(b => b.categoryName === "mouthSmileLeft")?.score || 0;
-          const smileR = bs.find(b => b.categoryName === "mouthSmileRight")?.score || 0;
-          const smile = (smileL + smileR) / 2;
-
-          if (smile > 0.55 && result.faceLandmarks.length) {
-            const lm = result.faceLandmarks[0];
-            const leftEye = lm[33], rightEye = lm[263];
-            const centerX = (leftEye.x + rightEye.x) / 2 * canvas.width;
-            const centerY = (leftEye.y + rightEye.y) / 2 * canvas.height;
-            const faceWidth = Math.hypot(
-              (rightEye.x - leftEye.x) * canvas.width,
-              (rightEye.y - leftEye.y) * canvas.height
-            ) * 2.5;
-
-            ctx.save();
-            ctx.translate(centerX, centerY - faceWidth * 0.1);
-            ctx.drawImage(mask, -faceWidth / 2, -faceWidth / 1.5, faceWidth, faceWidth * 1.2);
-            ctx.restore();
-          }
-        }
-        requestAnimationFrame(drawFrame);
-      }
-    }
-
-    init();
-  </script>
-</body>
-</html>
+<video id="video" autoplay playsinline muted style="width:100%;height:auto;"></video>
+<script>
+navigator.mediaDevices.getUserMedia({ video: true })
+  .then(stream => {
+    document.getElementById('video').srcObject = stream;
+  })
+  .catch(err => {
+    console.error("カメラ取得失敗:", err);
+  });
+</script>
